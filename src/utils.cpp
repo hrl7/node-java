@@ -293,7 +293,10 @@ static std::string getArrayElementType(v8::Local<v8::Array> array, uint32_t arra
     }
     else if(arg->IsObject()) {
       v8::Local<v8::Object> obj = v8::Local<v8::Object>::Cast(arg);
-      v8::Local<v8::Value> isJavaLong = obj->GetHiddenValue(Nan::New<v8::String>(V8_HIDDEN_MARKER_JAVA_LONG).ToLocalChecked());
+      v8::Local<v8::Context> ctx = Nan::GetCurrentContext();
+      v8::Isolate* isolate = ctx->GetIsolate();
+      v8::Local<v8::Private> hiddenMarkerJavaLongKey = v8::Private::ForApi(isolate, Nan::New<v8::String>(V8_HIDDEN_MARKER_JAVA_LONG).ToLocalChecked());
+      v8::Local<v8::Value> isJavaLong = obj->GetPrivate(ctx, hiddenMarkerJavaLongKey).ToLocalChecked();
       if(!isJavaLong.IsEmpty() && isJavaLong->IsBoolean()) {
         types.insert(kLong);
       }
@@ -367,12 +370,17 @@ jobject v8ToJava(JNIEnv* env, v8::Local<v8::Value> arg) {
   if(arg->IsObject()) {
     v8::Local<v8::Object> obj = v8::Local<v8::Object>::Cast(arg);
 
-    v8::Local<v8::Value> isJavaObject = obj->GetHiddenValue(Nan::New<v8::String>(V8_HIDDEN_MARKER_JAVA_OBJECT).ToLocalChecked());
+    v8::Local<v8::Context> ctx = Nan::GetCurrentContext();
+    v8::Isolate* isolate = ctx->GetIsolate();
+    v8::Local<v8::Private> hiddenMarkerJavaObjectKey = v8::Private::ForApi(isolate, Nan::New<v8::String>(V8_HIDDEN_MARKER_JAVA_OBJECT).ToLocalChecked());
+
+    v8::Local<v8::Value> isJavaObject = obj->GetPrivate(ctx, hiddenMarkerJavaObjectKey).ToLocalChecked();
     if(!isJavaObject.IsEmpty() && isJavaObject->IsBoolean()) {
       return v8ToJava_javaObject(env, obj);
     }
 
-    v8::Local<v8::Value> isJavaLong = obj->GetHiddenValue(Nan::New<v8::String>(V8_HIDDEN_MARKER_JAVA_LONG).ToLocalChecked());
+    v8::Local<v8::Private> hiddenMarkerJavaLongKey = v8::Private::ForApi(isolate, Nan::New<v8::String>(V8_HIDDEN_MARKER_JAVA_LONG).ToLocalChecked());
+    v8::Local<v8::Value> isJavaLong = obj->GetPrivate(ctx, hiddenMarkerJavaLongKey).ToLocalChecked();
     if(!isJavaLong.IsEmpty() && isJavaLong->IsBoolean()) {
       return v8ToJava_javaLong(env, obj);
     }
@@ -644,7 +652,11 @@ v8::Local<v8::Value> javaToV8(Java* java, JNIEnv* env, jobject obj, DynamicProxy
         v8::Local<v8::Value> v8Result = Nan::New<v8::NumberObject>((double)result);
         v8::NumberObject* v8ResultNumberObject = v8::NumberObject::Cast(*v8Result);
         v8ResultNumberObject->Set(Nan::New<v8::String>("longValue").ToLocalChecked(), Nan::New<v8::String>(strValue.c_str()).ToLocalChecked());
-        v8ResultNumberObject->SetHiddenValue(Nan::New<v8::String>(V8_HIDDEN_MARKER_JAVA_LONG).ToLocalChecked(), Nan::New<v8::Boolean>(true));
+
+        v8::Local<v8::Context> ctx = Nan::GetCurrentContext();
+        v8::Isolate* isolate = ctx->GetIsolate();
+        v8::Local<v8::Private> hiddenMarkerJavaLongKey = v8::Private::ForApi(isolate, Nan::New<v8::String>(V8_HIDDEN_MARKER_JAVA_LONG).ToLocalChecked());
+        v8ResultNumberObject->SetPrivate(ctx, hiddenMarkerJavaLongKey, Nan::New<v8::Boolean>(true));
         return v8Result;
       }
     case TYPE_INT:
